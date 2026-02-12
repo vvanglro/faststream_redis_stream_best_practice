@@ -12,6 +12,7 @@ import os
 from typing import Iterable
 
 import redis.asyncio as redis
+from loguru import logger
 
 from src.stream_config import STREAM_CONFIGS
 
@@ -45,6 +46,11 @@ async def cleanup_idle_consumers(
         # 2) idle 超过阈值
         if pending <= pending_threshold and idle > idle_threshold_ms:
             await redis_client.xgroup_delconsumer(stream_name, group_name, name)
+            logger.info(
+                f"已删除空闲消费者: stream={stream_name}, "
+                f"group={group_name}, consumer={name}, "
+                f"idle={idle}ms, pending={pending}"
+            )
             cleaned_count += 1
 
     return cleaned_count

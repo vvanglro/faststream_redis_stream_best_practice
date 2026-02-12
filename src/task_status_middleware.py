@@ -81,6 +81,8 @@ class TaskStatusMiddleware(BaseMiddleware):
         self.status_key_prefix = "task:status:"
         self.status_ttl_seconds = 3 * 24 * 60 * 60
 
+    # Use this if you want to customize outgoing messages before they are sent,
+    # such as adding encryption, compression, or custom headers.
     async def publish_scope(
         self,
         call_next: Callable[[PublishCommand], Awaitable[Any]],
@@ -89,14 +91,16 @@ class TaskStatusMiddleware(BaseMiddleware):
         """发布成功后写入 pending。"""
 
         message_uuid = _read_message_uuid_from_headers(cmd.headers)
-        result = await call_next(cmd)
+        msg_id = await call_next(cmd)
         if message_uuid:
             await self._update_status(message_uuid, "pending", {})
-        return result
+        return msg_id
 
+    # Use this if you want to add logic when a message is received for the first time,
+    # such as logging incoming messages, validating headers, or setting up the context.
     async def on_receive(self) -> Any:
         """消费者首次收到消息时写入 processing。"""
-
+        # {'type': 'stream', 'channel': 'demo-stream', 'message_ids': [b'1767854208631-0'], 'data': {b'__data__': b'\x89BIN\r\n\x1a\n\x00\x01\x00\x00\x00\x12\x00\x00\x00j\x00\x02\x00\x0ecorrelation_id\x00$a590d6fb-cacd-4ce2-bf74-969b323e3406\x00\x0ccontent-type\x00\x10application/json{"task_id":"task-001","content":"async task"}'}}
         parsed = await STREAM_PARSER.parse_message(self.msg)
         message_uuid = _read_message_uuid_from_headers(parsed.headers)
         if message_uuid:
@@ -107,6 +111,8 @@ class TaskStatusMiddleware(BaseMiddleware):
             )
         return await super().on_receive()
 
+    # Use this if you want to wrap the entire message processing process,
+    # such as implementing retry logic, circuit breakers, rate limiting, or authentication.
     async def consume_scope(
         self,
         call_next: Callable[[StreamMessage[Any]], Awaitable[Any]],
@@ -124,6 +130,8 @@ class TaskStatusMiddleware(BaseMiddleware):
             # failed 状态由 after_processed 统一落库。
             raise
 
+    # Use this if you want to perform post-processing tasks after message handling has completed,
+    # such as cleaning up, logging errors, collecting metrics, or committing transactions.
     async def after_processed(
         self,
         exc_type: type[BaseException] | None = None,
